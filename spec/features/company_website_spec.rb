@@ -13,6 +13,21 @@ describe 'autofill' do
     results
   }
 
+  before(:all) do
+    visit sign_in_path
+    binding.pry # wait for user to sign in
+  end
+
+  before :each do
+    visit hit_path
+    accept_button.click
+    @hit_url = page.current_url
+  end
+
+  after :each do
+    sleep 2
+  end
+
   def fill_in_search_with(string)
     google_search.send_keys(string)
     google_search.send_keys(:return)
@@ -22,32 +37,41 @@ describe 'autofill' do
     element.text.match(/#{regex}/).try(:[], 0..-1).try(:first)
   end
 
-  it "does" do
-    visit sign_in_path
-    binding.pry
-    2.times do
-      begin
-        visit hit_path
-        accept_button.click
-        hit_url = page.current_url
+  def run_sequence
+    begin
+      barcode = all('h3').find { |nodes| nodes.text.match(/Product barcode value/) }
+      barcode_string = extract_text_from(barcode.reload, "[^Product barcode value:](.*)/)")
+    rescue Selenium::WebDriver::Error::StaleElementReferenceError => e
+      binding.pry # check error
+      retry
+    end
+    visit_google
+    fill_in_search_with(barcode_string)
 
-        barcode = all('h3').find { |nodes| nodes.text.match(/Product barcode value/) }
-        barcode_string = extract_text_from(barcode, "[^Product barcode value:](.*)/)")
-        visit_google
-        fill_in_search_with(barcode_string)
-
-        if google_results.length < 2
-          visit hit_url
-          find('input[name="Answer_3"]').click
-          submit_button.click
-        else
-          binding.pry
-        end
-      rescue Selenium::WebDriver::Error::StaleElementReferenceError => e
-        binding.pry
-        sleep 2
-        retry
-      end
+    if google_results.length < 2
+      visit @hit_url
+      find('input[name="Answer_3"]').click
+      submit_button.click
+    else
+      binding.pry # wait for user to get correct link
     end
   end
+
+# would do a loop but something about session reset is causing a
+# stale element issue. investigate later
+  it "does" do
+    run_sequence
+  end
+
+  it "does" do
+    run_sequence
+  end
+
+  # it "does" do
+  #   run_sequence
+  # end
+
+  # it "does" do
+  #   run_sequence
+  # end
 end

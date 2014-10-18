@@ -47,4 +47,5 @@ end
 
 Capybara.configure do |c|
   c.current_driver = :chrome
+  c.default_wait_time = 5
 end
